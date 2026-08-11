@@ -40,22 +40,27 @@ spec:
           # liveness delay on a busy shared cluster. A startupProbe gates
           # liveness/readiness until the app is actually up, so a slow boot
           # is never mistaken for a hung one and killed mid-startup.
+          #
+          # /-/readiness and /-/liveness 404 on this rebuilt image
+          # (quay.io/redhat-gpte/gitlab), even once GitLab is fully up.
+          # /users/sign_in reliably returns 200 once Puma has booted, so it's
+          # used as the health-check path instead.
           startupProbe:
             httpGet:
-              path: /-/readiness
+              path: /users/sign_in
               port: 80
             initialDelaySeconds: 30
             periodSeconds: 15
             failureThreshold: 60
           readinessProbe:
             httpGet:
-              path: /-/readiness
+              path: /users/sign_in
               port: 80
             periodSeconds: 15
             failureThreshold: 10
           livenessProbe:
             httpGet:
-              path: /-/liveness
+              path: /users/sign_in
               port: 80
             periodSeconds: 30
             failureThreshold: 5
