@@ -35,18 +35,28 @@ spec:
             requests:
               cpu: 250m
               memory: 1Gi
+          # The omnibus image reruns a full Chef reconfigure + Rails boot on
+          # every container start, which can take well over the old fixed
+          # liveness delay on a busy shared cluster. A startupProbe gates
+          # liveness/readiness until the app is actually up, so a slow boot
+          # is never mistaken for a hung one and killed mid-startup.
+          startupProbe:
+            httpGet:
+              path: /-/readiness
+              port: 80
+            initialDelaySeconds: 30
+            periodSeconds: 15
+            failureThreshold: 60
           readinessProbe:
             httpGet:
               path: /-/readiness
               port: 80
-            initialDelaySeconds: 120
             periodSeconds: 15
             failureThreshold: 10
           livenessProbe:
             httpGet:
               path: /-/liveness
               port: 80
-            initialDelaySeconds: 180
             periodSeconds: 30
             failureThreshold: 5
           securityContext:
