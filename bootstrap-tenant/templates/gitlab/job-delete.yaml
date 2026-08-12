@@ -1,0 +1,39 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: delete-gitlab-tenant
+  namespace: lightwell-tenant-{{ .Values.guid }}
+  annotations:
+    argocd.argoproj.io/hook: PreDelete
+    argocd.argoproj.io/hook-delete-policy: HookSucceeded
+spec:
+  backoffLimit: 10
+  template:
+    spec:
+      serviceAccountName: lightwell-tenant-jobs
+      restartPolicy: OnFailure
+      containers:
+        - name: delete-gitlab-tenant
+          image: {{ .Values.jobAnsibleImage }}
+          command:
+            - /bin/bash
+            - -c
+            - |
+              set -e
+              GITLAB_NS="{{ .Values.gitlab.namespace }}"
+              GITLAB_HOST="https://gitlab-${GITLAB_NS}.{{ .Values.gitlab.domain }}"
+              USERNAME="{{ .Values.username }}"
+
+              ROOT_TOKEN=$(oc get secret root-user-personal-token -n "${GITLAB_NS}" -o jsonpath='{.data.token}' 2>/dev/null | base64 -d)
+              if [ -z "${ROOT_TOKEN}" ]; then
+                echo "Root token secret not found, assuming GitLab already torn down"
+                exit 0
+              fi
+
+              USER_ID=$(curl -sk -H "PRIVATE-TOKEN: ${ROOT_TOKEN}" "${GITLAB_HOST}/api/v4/users?username=${USERNAME}" 2>/dev/null | python3 -c "import json,sys; d=json.load(sys.stdin); print(d[0]['id'] if d else '')" 2>/dev/null || true)
+              if [ -n "${USER_ID}" ]; then
+                curl -sk -o /dev/null -H "PRIVATE-TOKEN: ${ROOT_TOKEN}" -X DELETE "${GITLAB_HOST}/api/v4/users/${USER_ID}?hard_delete=true"
+                echo "Deleted GitLab user ${USERNAME}"
+              else
+                echo "GitLab user ${USERNAME} not found, already gone"
+              fi

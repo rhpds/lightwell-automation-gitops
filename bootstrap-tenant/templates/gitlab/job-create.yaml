@@ -1,0 +1,67 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: create-gitlab-tenant
+  namespace: lightwell-tenant-{{ .Values.guid }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+    argocd.argoproj.io/hook: Sync
+    argocd.argoproj.io/hook-delete-policy: HookSucceeded
+spec:
+  backoffLimit: 10
+  template:
+    spec:
+      serviceAccountName: lightwell-tenant-jobs
+      restartPolicy: OnFailure
+      containers:
+        - name: create-gitlab-tenant
+          image: {{ .Values.jobAnsibleImage }}
+          command:
+            - /bin/bash
+            - -c
+            - |
+              set -e
+              GITLAB_NS="{{ .Values.gitlab.namespace }}"
+              GITLAB_HOST="https://gitlab-${GITLAB_NS}.{{ .Values.gitlab.domain }}"
+              USERNAME="{{ .Values.username }}"
+              PASSWORD="{{ .Values.password }}"
+              GROUP="{{ .Values.gitlab.group }}"
+
+              ROOT_TOKEN=$(oc get secret root-user-personal-token -n "${GITLAB_NS}" -o jsonpath='{.data.token}' | base64 -d)
+
+              echo "Waiting for GitLab API..."
+              for i in $(seq 1 60); do
+                STATUS=$(curl -sk -o /dev/null -w '%{http_code}' -H "PRIVATE-TOKEN: ${ROOT_TOKEN}" "${GITLAB_HOST}/api/v4/projects" 2>/dev/null)
+                if [ "${STATUS}" = "200" ]; then
+                  break
+                fi
+                echo "Attempt $i/60 - API returned ${STATUS} (10s)..."
+                sleep 10
+              done
+              if [ "${STATUS}" != "200" ]; then
+                echo "ERROR: GitLab API not ready after 10 minutes"
+                exit 1
+              fi
+
+              echo "Creating user ${USERNAME}..."
+              CODE=$(curl -sk -o /tmp/user.json -w '%{http_code}' \
+                -H "PRIVATE-TOKEN: ${ROOT_TOKEN}" -H "Content-Type: application/json" \
+                -X POST "${GITLAB_HOST}/api/v4/users" \
+                -d "{\"username\":\"${USERNAME}\",\"name\":\"${USERNAME}\",\"email\":\"${USERNAME}@lightwell.example.com\",\"password\":\"${PASSWORD}\",\"skip_confirmation\":true}")
+              if [ "${CODE}" != "201" ] && [ "${CODE}" != "409" ]; then
+                echo "ERROR: user create failed (HTTP ${CODE})"; cat /tmp/user.json; exit 1
+              fi
+
+              USER_ID=$(curl -sk -H "PRIVATE-TOKEN: ${ROOT_TOKEN}" "${GITLAB_HOST}/api/v4/users?username=${USERNAME}" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d[0]['id'] if d else '')")
+              GROUP_ID=$(curl -sk -H "PRIVATE-TOKEN: ${ROOT_TOKEN}" "${GITLAB_HOST}/api/v4/groups/${GROUP}" | python3 -c "import json,sys; print(json.load(sys.stdin)['id'])")
+
+              echo "Adding user ${USER_ID} to group ${GROUP} (${GROUP_ID})..."
+              CODE=$(curl -sk -o /tmp/member.json -w '%{http_code}' \
+                -H "PRIVATE-TOKEN: ${ROOT_TOKEN}" -H "Content-Type: application/json" \
+                -X POST "${GITLAB_HOST}/api/v4/groups/${GROUP_ID}/members" \
+                -d "{\"user_id\":${USER_ID},\"access_level\":30}")
+              if [ "${CODE}" != "201" ] && [ "${CODE}" != "409" ]; then
+                echo "ERROR: group membership failed (HTTP ${CODE})"; cat /tmp/member.json; exit 1
+              fi
+
+              echo "GitLab tenant provisioning complete"
