@@ -1,0 +1,60 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: init-artifactory-repos
+  namespace: {{ .Values.artifactory.namespace }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "3"
+    argocd.argoproj.io/hook: Sync
+    argocd.argoproj.io/hook-delete-policy: HookSucceeded
+spec:
+  backoffLimit: 10
+  template:
+    spec:
+      serviceAccountName: artifactory-repo-init
+      restartPolicy: OnFailure
+      containers:
+        - name: init-repos
+          image: {{ .Values.jobAnsibleImage }}
+          command:
+            - /bin/bash
+            - -c
+            - |
+              set -e
+              HOST="artifactory-{{ .Values.artifactory.namespace }}.{{ .Values.deployer.domain }}"
+              ADMIN_USER="admin"
+              ADMIN_PASS="{{ .Values.admin.password }}"
+
+              echo "Waiting for Artifactory API..."
+              for i in $(seq 1 60); do
+                STATUS=$(curl -sk -o /dev/null -w '%{http_code}' -u "${ADMIN_USER}:${ADMIN_PASS}" "https://${HOST}/artifactory/api/system/ping" 2>/dev/null)
+                if [ "${STATUS}" = "200" ]; then
+                  echo "Artifactory API is ready"
+                  break
+                fi
+                echo "Attempt $i/60 - API returned ${STATUS} (10s)..."
+                sleep 10
+              done
+              if [ "${STATUS}" != "200" ]; then
+                echo "ERROR: Artifactory API not ready after 10 minutes"
+                exit 1
+              fi
+
+              create_or_update_remote() {
+                local key="$1" url="$2"
+                CODE=$(curl -sk -o /tmp/resp.json -w '%{http_code}' \
+                  -u "${ADMIN_USER}:${ADMIN_PASS}" \
+                  -H "Content-Type: application/json" \
+                  -X PUT "https://${HOST}/artifactory/api/repositories/${key}" \
+                  -d "{\"rclass\":\"remote\",\"packageType\":\"pypi\",\"url\":\"${url}\"}")
+                if [ "${CODE}" = "200" ] || [ "${CODE}" = "201" ]; then
+                  echo "Repo ${key} ready (HTTP ${CODE})"
+                else
+                  echo "ERROR: failed to create repo ${key} (HTTP ${CODE})"
+                  cat /tmp/resp.json
+                  exit 1
+                fi
+              }
+
+              create_or_update_remote "{{ .Values.artifactory.pypiUpstreamRemoteKey }}" "{{ .Values.artifactory.pypiUpstreamRemoteUrl }}"
+              create_or_update_remote "{{ .Values.artifactory.pypiLightwellRemoteKey }}" "{{ .Values.artifactory.pypiLightwellRemoteUrl }}"

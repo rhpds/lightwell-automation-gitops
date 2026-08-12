@@ -26,6 +26,10 @@ artifactory:
   image: releases-docker.jfrog.io/jfrog/artifactory-oss:7.98.14
   postgresqlImage: docker.io/library/postgres:16-alpine
   storageSize: 20Gi
+  pypiUpstreamRemoteKey: pypi-upstream-remote
+  pypiUpstreamRemoteUrl: https://pypi.org
+  pypiLightwellRemoteKey: pypi-lightwell-remote
+  pypiLightwellRemoteUrl: https://pypi.lightwell.example.com
 
 jenkins:
   namespace: lightwell-jenkins
