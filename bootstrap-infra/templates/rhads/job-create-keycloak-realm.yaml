@@ -1,0 +1,76 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: create-tpa-keycloak-realm
+  namespace: {{ .Values.tpa.namespace }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+    argocd.argoproj.io/hook: Sync
+    argocd.argoproj.io/hook-delete-policy: HookSucceeded
+spec:
+  backoffLimit: 10
+  template:
+    spec:
+      serviceAccountName: tpa-keycloak-init
+      restartPolicy: OnFailure
+      containers:
+        - name: create-realm
+          image: {{ .Values.jobAnsibleImage }}
+          command:
+            - /bin/bash
+            - -c
+            - |
+              set -e
+              KC_HOST="keycloak-keycloak.{{ .Values.deployer.domain }}"
+              ADMIN_USER="admin"
+              ADMIN_PASS="{{ .Values.admin.password }}"
+              REALM="{{ .Values.tpa.keycloakRealm }}"
+              CLIENT_ID="{{ .Values.tpa.uiClientId }}"
+              REDIRECT_URI="https://trustify.{{ .Values.deployer.domain }}/*"
+
+              echo "Waiting for Keycloak admin API..."
+              for i in $(seq 1 60); do
+                STATUS=$(curl -sk -o /dev/null -w '%{http_code}' "https://${KC_HOST}/realms/master" 2>/dev/null || true)
+                if [ "${STATUS}" = "200" ]; then
+                  echo "Keycloak API is ready"
+                  break
+                fi
+                echo "Attempt $i/60 - API returned ${STATUS} (10s)..."
+                sleep 10
+              done
+              if [ "${STATUS}" != "200" ]; then
+                echo "ERROR: Keycloak API not ready after 10 minutes"
+                exit 1
+              fi
+
+              TOKEN=$(curl -sk -X POST "https://${KC_HOST}/realms/master/protocol/openid-connect/token" \
+                -d "client_id=admin-cli" -d "username=${ADMIN_USER}" -d "password=${ADMIN_PASS}" \
+                -d "grant_type=password" | sed -n 's/.*"access_token":"\([^"]*\)".*/\1/p')
+              if [ -z "${TOKEN}" ]; then
+                echo "ERROR: failed to obtain Keycloak admin token"
+                exit 1
+              fi
+
+              REALM_CODE=$(curl -sk -o /tmp/realm_resp.json -w '%{http_code}' \
+                -H "Authorization: Bearer ${TOKEN}" -H "Content-Type: application/json" \
+                -X POST "https://${KC_HOST}/admin/realms" \
+                -d "{\"realm\":\"${REALM}\",\"enabled\":true}")
+              if [ "${REALM_CODE}" = "201" ] || [ "${REALM_CODE}" = "409" ]; then
+                echo "Realm ${REALM} ready (HTTP ${REALM_CODE})"
+              else
+                echo "ERROR: failed to create realm (HTTP ${REALM_CODE})"
+                cat /tmp/realm_resp.json
+                exit 1
+              fi
+
+              CLIENT_CODE=$(curl -sk -o /tmp/client_resp.json -w '%{http_code}' \
+                -H "Authorization: Bearer ${TOKEN}" -H "Content-Type: application/json" \
+                -X POST "https://${KC_HOST}/admin/realms/${REALM}/clients" \
+                -d "{\"clientId\":\"${CLIENT_ID}\",\"publicClient\":true,\"redirectUris\":[\"${REDIRECT_URI}\"],\"webOrigins\":[\"*\"]}")
+              if [ "${CLIENT_CODE}" = "201" ] || [ "${CLIENT_CODE}" = "409" ]; then
+                echo "Client ${CLIENT_ID} ready (HTTP ${CLIENT_CODE})"
+              else
+                echo "ERROR: failed to create client (HTTP ${CLIENT_CODE})"
+                cat /tmp/client_resp.json
+                exit 1
+              fi
