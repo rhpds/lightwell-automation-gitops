@@ -1,0 +1,83 @@
+apiVersion: tekton.dev/v1
+kind: Pipeline
+metadata:
+  name: build-sign-scan-push
+  namespace: {{ .Values.tekton.namespace }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+spec:
+  params:
+    - name: git-url
+      type: string
+    - name: git-revision
+      type: string
+      default: main
+    - name: image-ref
+      type: string
+      description: Full Quay image reference to push, e.g. quay-registry.example.com/lightwell/app:latest
+    - name: product-name
+      type: string
+  workspaces:
+    - name: shared-workspace
+  tasks:
+    - name: fetch-source
+      taskRef:
+        resolver: hub
+        params:
+          - name: kind
+            value: task
+          - name: name
+            value: git-clone
+          - name: version
+            value: "0.9"
+      workspaces:
+        - name: output
+          workspace: shared-workspace
+      params:
+        - name: url
+          value: $(params.git-url)
+        - name: revision
+          value: $(params.git-revision)
+    - name: build-image
+      runAfter: ["fetch-source"]
+      taskRef:
+        resolver: hub
+        params:
+          - name: kind
+            value: task
+          - name: name
+            value: buildah
+          - name: version
+            value: "0.6"
+      workspaces:
+        - name: source
+          workspace: shared-workspace
+      params:
+        - name: IMAGE
+          value: $(params.image-ref)
+    - name: sign-image
+      runAfter: ["build-image"]
+      taskRef:
+        resolver: hub
+        params:
+          - name: kind
+            value: task
+          - name: name
+            value: cosign-sign
+          - name: version
+            value: "0.1"
+      params:
+        - name: image
+          value: $(params.image-ref)
+    - name: submit-sbom
+      runAfter: ["build-image"]
+      taskRef:
+        name: submit-sbom-to-rhtpa
+      workspaces:
+        - name: source
+          workspace: shared-workspace
+      params:
+        - name: sbom-path
+          value: sbom.json
+        - name: product-name
+          value: $(params.product-name)
