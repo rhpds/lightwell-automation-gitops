@@ -45,7 +45,7 @@ quay:
 
 aap:
   namespace: aap
-  channel: stable-2.6
+  channel: stable-2.7
   manifestUrl: https://d3s3zqyaz8cp2d.cloudfront.net/aap/manifest.zip
 
 jobAnsibleImage: quay.io/agnosticd/ee-multicloud:chained-2026-08-05
