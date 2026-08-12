@@ -22,8 +22,8 @@ spec:
             - |
               set -e
               KC_HOST="sso.{{ .Values.deployer.domain }}"
-              ADMIN_USER="admin"
-              ADMIN_PASS="{{ .Values.admin.password }}"
+              ADMIN_USER=$(oc get secret keycloak-initial-admin -n keycloak -o jsonpath='{.data.username}' | base64 -d)
+              ADMIN_PASS=$(oc get secret keycloak-initial-admin -n keycloak -o jsonpath='{.data.password}' | base64 -d)
               REALM="{{ .Values.tpa.keycloakRealm }}"
               CLIENT_ID="{{ .Values.tpa.uiClientId }}"
               REDIRECT_URI="https://trustify.{{ .Values.deployer.domain }}/*"

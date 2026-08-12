@@ -5,3 +5,32 @@ metadata:
   namespace: {{ .Values.tpa.namespace }}
   annotations:
     argocd.argoproj.io/sync-wave: "-1"
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: tpa-keycloak-init-secret-reader
+  namespace: keycloak
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"
+rules:
+  - apiGroups: [""]
+    resources: ["secrets"]
+    resourceNames: ["keycloak-initial-admin"]
+    verbs: ["get"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: tpa-keycloak-init-secret-reader
+  namespace: keycloak
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"
+subjects:
+  - kind: ServiceAccount
+    name: tpa-keycloak-init
+    namespace: {{ .Values.tpa.namespace }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: tpa-keycloak-init-secret-reader
