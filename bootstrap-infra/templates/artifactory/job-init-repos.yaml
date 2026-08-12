@@ -27,7 +27,7 @@ spec:
 
               echo "Waiting for Artifactory API..."
               for i in $(seq 1 60); do
-                STATUS=$(curl -sk -o /dev/null -w '%{http_code}' -u "${ADMIN_USER}:${ADMIN_PASS}" "https://${HOST}/artifactory/api/system/ping" 2>/dev/null)
+                STATUS=$(curl -sk -o /dev/null -w '%{http_code}' -u "${ADMIN_USER}:${ADMIN_PASS}" "https://${HOST}/artifactory/api/system/ping" 2>/dev/null || true)
                 if [ "${STATUS}" = "200" ]; then
                   echo "Artifactory API is ready"
                   break
