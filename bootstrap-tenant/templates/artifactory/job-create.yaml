@@ -1,0 +1,75 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: create-artifactory-tenant
+  namespace: lightwell-tenant-{{ .Values.guid }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+    argocd.argoproj.io/hook: Sync
+    argocd.argoproj.io/hook-delete-policy: HookSucceeded
+spec:
+  backoffLimit: 10
+  template:
+    spec:
+      serviceAccountName: lightwell-tenant-jobs
+      restartPolicy: OnFailure
+      containers:
+        - name: create-artifactory-tenant
+          image: {{ .Values.jobAnsibleImage }}
+          command:
+            - /bin/bash
+            - -c
+            - |
+              set -e
+              AAP_NS="{{ .Values.aap.namespace }}"
+              ART_NS="{{ .Values.artifactory.namespace }}"
+              HOST="https://artifactory-${ART_NS}.{{ .Values.artifactory.domain }}"
+              USERNAME="{{ .Values.username }}"
+              PASSWORD="{{ .Values.password }}"
+              VIRTUAL_KEY="{{ .Values.artifactory.virtualRepoKey }}"
+              REPOS_JSON='{{ .Values.artifactory.initialRepositories | toJson }}'
+
+              ADMIN_PASS=$(oc get secret aap-admin-password -n "${AAP_NS}" -o jsonpath='{.data.password}' | base64 -d)
+
+              echo "Waiting for Artifactory API..."
+              for i in $(seq 1 60); do
+                STATUS=$(curl -sk -o /dev/null -w '%{http_code}' -u "admin:${ADMIN_PASS}" "${HOST}/artifactory/api/system/ping" 2>/dev/null || true)
+                if [ "${STATUS}" = "200" ]; then
+                  break
+                fi
+                echo "Attempt $i/60 - API returned ${STATUS} (10s)..."
+                sleep 10
+              done
+              if [ "${STATUS}" != "200" ]; then
+                echo "ERROR: Artifactory API not ready after 10 minutes"
+                exit 1
+              fi
+
+              echo "Creating virtual repo ${VIRTUAL_KEY}..."
+              CODE=$(curl -sk -o /tmp/repo.json -w '%{http_code}' \
+                -u "admin:${ADMIN_PASS}" -H "Content-Type: application/json" \
+                -X PUT "${HOST}/artifactory/api/repositories/${VIRTUAL_KEY}" \
+                -d "{\"rclass\":\"virtual\",\"packageType\":\"pypi\",\"repositories\":${REPOS_JSON}}")
+              if [ "${CODE}" != "200" ] && [ "${CODE}" != "201" ]; then
+                echo "ERROR: virtual repo create failed (HTTP ${CODE})"; cat /tmp/repo.json; exit 1
+              fi
+
+              echo "Creating Artifactory user ${USERNAME}..."
+              CODE=$(curl -sk -o /tmp/user.json -w '%{http_code}' \
+                -u "admin:${ADMIN_PASS}" -H "Content-Type: application/json" \
+                -X PUT "${HOST}/artifactory/api/security/users/${USERNAME}" \
+                -d "{\"email\":\"${USERNAME}@lightwell.example.com\",\"password\":\"${PASSWORD}\",\"admin\":false}")
+              if [ "${CODE}" != "200" ] && [ "${CODE}" != "201" ]; then
+                echo "ERROR: user create failed (HTTP ${CODE})"; cat /tmp/user.json; exit 1
+              fi
+
+              echo "Creating permission target for ${USERNAME} on ${VIRTUAL_KEY}..."
+              CODE=$(curl -sk -o /tmp/perm.json -w '%{http_code}' \
+                -u "admin:${ADMIN_PASS}" -H "Content-Type: application/json" \
+                -X PUT "${HOST}/artifactory/api/security/permissions/perm-${USERNAME}" \
+                -d "{\"name\":\"perm-${USERNAME}\",\"repo\":{\"repositories\":[\"${VIRTUAL_KEY}\"],\"actions\":{\"users\":{\"${USERNAME}\":[\"read\",\"manage\"]}}}}")
+              if [ "${CODE}" != "200" ] && [ "${CODE}" != "201" ]; then
+                echo "ERROR: permission target create failed (HTTP ${CODE})"; cat /tmp/perm.json; exit 1
+              fi
+
+              echo "Artifactory tenant provisioning complete"
