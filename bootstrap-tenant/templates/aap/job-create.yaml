@@ -46,7 +46,7 @@ spec:
 
               echo "Waiting for Controller API via gateway..."
               for i in $(seq 1 60); do
-                STATUS=$(curl -sk -o /dev/null -w '%{http_code}' -u "admin:${ADMIN_PASS}" "${GATEWAY_HOST}/api/controller/v2/ping/" 2>/dev/null)
+                STATUS=$(curl -sk -o /dev/null -w '%{http_code}' -u "admin:${ADMIN_PASS}" "${GATEWAY_HOST}/api/controller/v2/ping/" 2>/dev/null || true)
                 if [ "${STATUS}" = "200" ]; then
                   break
                 fi
