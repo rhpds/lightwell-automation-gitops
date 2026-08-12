@@ -14,10 +14,4 @@ spec:
     datasciencepipelines:
       managementState: Managed
     kserve:
-      managementState: Managed
-      serving:
-        managementState: Managed
-        name: knative-serving
-        ingressGateway:
-          certificate:
-            type: OpenshiftDefaultIngress
+      managementState: Removed

@@ -23,7 +23,7 @@ bootstrap-infra/          Helm chart — cluster-scoped shared infrastructure
     quay/                 Red Hat Quay (container image registry)
     rhads/                RHTAS (Trusted Artifact Signer) + TPA (Trusted Profile Analyzer)
     rhoai/                OpenShift AI (operator + DataScienceCluster)
-    tekton/               OpenShift Pipelines (build/sign/scan/push demo pipeline)
+    tekton/               OpenShift Pipelines (operator install; demo pipeline content is separate follow-up work)
     sonarqube/            SonarQube (static code analysis)
   values.yaml             Configurable values (domain, passwords, image tags, channels)
   Chart.yaml
@@ -47,7 +47,7 @@ bootstrap-tenant/         Helm chart — per-user tenant resources (placeholder)
 | **Red Hat Quay** | Container image registry with Clair vulnerability scanning | `lightwell-quay` |
 | **AAP** (Ansible Automation Platform) | Automation orchestration and event-driven automation | `aap` |
 | **OpenShift AI** | Data science dashboard, workbenches, pipelines, model serving | `redhat-ods-operator` / `redhat-ods-applications` |
-| **OpenShift Pipelines** | Tekton-based build/sign/scan/push demo pipeline | `lightwell-tssc` |
+| **OpenShift Pipelines** | Operator installed; demo pipeline content not yet built | `lightwell-tssc` |
 
 ## How It's Deployed
 
