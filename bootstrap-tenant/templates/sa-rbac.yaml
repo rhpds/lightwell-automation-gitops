@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: lightwell-tenant-jobs
+  namespace: lightwell-tenant-{{ .Values.guid }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"

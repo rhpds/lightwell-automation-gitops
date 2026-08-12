@@ -1,1 +1,23 @@
-# Placeholder — tenant chart to be implemented later
+guid: CHANGEME
+username: user-CHANGEME
+password: changeme
+
+jobAnsibleImage: quay.io/agnosticd/ee-multicloud:chained-2026-08-05
+
+aap:
+  namespace: aap
+  org: user-CHANGEME
+
+gitlab:
+  namespace: gitlab
+  domain: apps.cluster-guid.sandbox.opentlc.com
+  group: lightwell
+
+artifactory:
+  namespace: lightwell-artifactory
+  domain: apps.cluster-guid.sandbox.opentlc.com
+  upstreamRepoKey: pypi-upstream-remote
+  lightwellRepoKey: pypi-lightwell-remote
+  virtualRepoKey: pypi-virtual-user-CHANGEME
+  initialRepositories:
+    - pypi-upstream-remote

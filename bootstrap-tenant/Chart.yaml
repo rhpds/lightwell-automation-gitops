@@ -1,6 +1,6 @@
 apiVersion: v2
 name: lightwell-tenant
-description: Lightwell demo per-user tenant resources (placeholder)
+description: Lightwell demo per-tenant resources (AAP2, GitLab, Artifactory accounts)
 type: application
 version: 0.1.0
 appVersion: "1.0.0"
