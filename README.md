@@ -22,6 +22,8 @@ bootstrap-infra/          Helm chart — cluster-scoped shared infrastructure
     jenkins/              Jenkins (build automation)
     quay/                 Red Hat Quay (container image registry)
     rhads/                RHTAS (Trusted Artifact Signer) + TPA (Trusted Profile Analyzer)
+    rhoai/                OpenShift AI (operator + DataScienceCluster)
+    tekton/               OpenShift Pipelines (build/sign/scan/push demo pipeline)
     sonarqube/            SonarQube (static code analysis)
   values.yaml             Configurable values (domain, passwords, image tags, channels)
   Chart.yaml
@@ -44,6 +46,8 @@ bootstrap-tenant/         Helm chart — per-user tenant resources (placeholder)
 | **SonarQube** | Static code analysis and quality gates | `lightwell-sonarqube` |
 | **Red Hat Quay** | Container image registry with Clair vulnerability scanning | `lightwell-quay` |
 | **AAP** (Ansible Automation Platform) | Automation orchestration and event-driven automation | `aap` |
+| **OpenShift AI** | Data science dashboard, workbenches, pipelines, model serving | `redhat-ods-operator` / `redhat-ods-applications` |
+| **OpenShift Pipelines** | Tekton-based build/sign/scan/push demo pipeline | `lightwell-tssc` |
 
 ## How It's Deployed
 
