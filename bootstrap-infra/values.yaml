@@ -20,6 +20,10 @@ rhtas:
 tpa:
   namespace: lightwell-tpa
   channel: stable-v1.1
+  keycloakRealm: trusted-profile-analyzer
+  uiClientId: trustify-ui
+  storageSize: 20Gi
+  dbStorageSize: 5Gi
 
 artifactory:
   namespace: lightwell-artifactory
@@ -51,5 +55,13 @@ aap:
   namespace: aap
   channel: stable-2.7
   manifestUrl: https://d3s3zqyaz8cp2d.cloudfront.net/aap/manifest.zip
+
+rhoai:
+  namespace: redhat-ods-operator
+  channel: stable
+
+tekton:
+  namespace: lightwell-tssc
+  channel: pipelines-1.21
 
 jobAnsibleImage: quay.io/agnosticd/ee-multicloud:chained-2026-08-05
