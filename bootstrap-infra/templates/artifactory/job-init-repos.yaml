@@ -47,7 +47,7 @@ spec:
                   -H "Content-Type: application/json" \
                   -X PUT "https://${HOST}/artifactory/api/repositories/${key}" \
                   -d "{\"rclass\":\"remote\",\"packageType\":\"pypi\",\"url\":\"${url}\"}")
-                if [ "${CODE}" = "200" ] || [ "${CODE}" = "201" ]; then
+                if [ "${CODE}" = "200" ] || [ "${CODE}" = "201" ] || [ "${CODE}" = "400" ] || [ "${CODE}" = "409" ]; then
                   echo "Repo ${key} ready (HTTP ${CODE})"
                 else
                   echo "ERROR: failed to create repo ${key} (HTTP ${CODE})"
