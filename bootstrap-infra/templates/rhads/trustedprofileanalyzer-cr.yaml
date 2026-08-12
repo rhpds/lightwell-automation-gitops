@@ -13,7 +13,7 @@ spec:
     enabled: true
     externalServer: true
     external:
-      serverUrl: "https://keycloak-keycloak.{{ .Values.deployer.domain }}/realms/{{ .Values.tpa.keycloakRealm }}"
+      serverUrl: "https://sso.{{ .Values.deployer.domain }}/realms/{{ .Values.tpa.keycloakRealm }}"
       uiClientId: "{{ .Values.tpa.uiClientId }}"
   storage:
     type: FILESYSTEM

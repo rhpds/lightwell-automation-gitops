@@ -19,8 +19,8 @@ spec:
     config:
       OIDCIssuers:
         - ClientID: "trusted-artifact-signer"
-          IssuerURL: "https://keycloak-keycloak.{{ .Values.deployer.domain }}/realms/trusted-artifact-signer"
-          Issuer: "https://keycloak-keycloak.{{ .Values.deployer.domain }}/realms/trusted-artifact-signer"
+          IssuerURL: "https://sso.{{ .Values.deployer.domain }}/realms/trusted-artifact-signer"
+          Issuer: "https://sso.{{ .Values.deployer.domain }}/realms/trusted-artifact-signer"
           Type: email
   ctlog: {}
   tuf:

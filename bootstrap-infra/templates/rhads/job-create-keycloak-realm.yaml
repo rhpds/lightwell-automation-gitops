@@ -21,7 +21,7 @@ spec:
             - -c
             - |
               set -e
-              KC_HOST="keycloak-keycloak.{{ .Values.deployer.domain }}"
+              KC_HOST="sso.{{ .Values.deployer.domain }}"
               ADMIN_USER="admin"
               ADMIN_PASS="{{ .Values.admin.password }}"
               REALM="{{ .Values.tpa.keycloakRealm }}"
