@@ -1,7 +1,7 @@
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
-  name: lightwell-tenant-artifactory-admin-secret-reader
+  name: lightwell-tenant-artifactory-admin-secret-reader-{{ .Values.guid }}
   namespace: {{ .Values.aap.namespace }}
   annotations:
     argocd.argoproj.io/sync-wave: "0"
@@ -21,7 +21,7 @@ metadata:
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
-  name: lightwell-tenant-artifactory-admin-secret-reader
+  name: lightwell-tenant-artifactory-admin-secret-reader-{{ .Values.guid }}
 subjects:
   - kind: ServiceAccount
     name: lightwell-tenant-jobs

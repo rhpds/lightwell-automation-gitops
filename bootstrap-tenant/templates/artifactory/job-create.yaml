@@ -50,7 +50,7 @@ spec:
                 -u "admin:${ADMIN_PASS}" -H "Content-Type: application/json" \
                 -X PUT "${HOST}/artifactory/api/repositories/${VIRTUAL_KEY}" \
                 -d "{\"rclass\":\"virtual\",\"packageType\":\"pypi\",\"repositories\":${REPOS_JSON}}")
-              if [ "${CODE}" != "200" ] && [ "${CODE}" != "201" ]; then
+              if [ "${CODE}" != "200" ] && [ "${CODE}" != "201" ] && [ "${CODE}" != "400" ] && [ "${CODE}" != "409" ]; then
                 echo "ERROR: virtual repo create failed (HTTP ${CODE})"; cat /tmp/repo.json; exit 1
               fi
 
