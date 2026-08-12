@@ -1,0 +1,25 @@
+apiVersion: rhtpa.redhat.com/v1alpha1
+kind: TrustedProfileAnalyzer
+metadata:
+  name: trustedprofileanalyzer-sample
+  namespace: {{ .Values.tpa.namespace }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+spec:
+  hostname:
+    hostname: "trustify.{{ .Values.deployer.domain }}"
+  oidc:
+    enabled: true
+    externalServer: true
+    external:
+      serverUrl: "https://keycloak-keycloak.{{ .Values.deployer.domain }}/realms/{{ .Values.tpa.keycloakRealm }}"
+      uiClientId: "{{ .Values.tpa.uiClientId }}"
+  storage:
+    type: FILESYSTEM
+    filesystem:
+      pvcSize: "{{ .Values.tpa.storageSize }}"
+  db:
+    externalDatabase: false
+    embedded:
+      pvcSize: "{{ .Values.tpa.dbStorageSize }}"
