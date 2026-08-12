@@ -1,0 +1,55 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: delete-aap-tenant
+  namespace: lightwell-tenant-{{ .Values.guid }}
+  annotations:
+    argocd.argoproj.io/hook: PreDelete
+    argocd.argoproj.io/hook-delete-policy: HookSucceeded
+spec:
+  backoffLimit: 10
+  template:
+    spec:
+      serviceAccountName: lightwell-tenant-jobs
+      restartPolicy: OnFailure
+      containers:
+        - name: delete-aap-tenant
+          image: {{ .Values.jobAnsibleImage }}
+          command:
+            - /bin/bash
+            - -c
+            - |
+              set -e
+              AAP_NS="{{ .Values.aap.namespace }}"
+              ORG="{{ .Values.aap.org }}"
+              USERNAME="{{ .Values.username }}"
+
+              ROUTE_HOST=$(oc get route -n "${AAP_NS}" -l app.kubernetes.io/managed-by=aap-operator -o jsonpath='{.items[0].spec.host}' 2>/dev/null)
+              if [ -z "${ROUTE_HOST}" ]; then
+                echo "Gateway route not found, assuming AAP2 already torn down"
+                exit 0
+              fi
+              GATEWAY_HOST="https://${ROUTE_HOST}"
+              ADMIN_PASS=$(oc get secret aap-admin-password -n "${AAP_NS}" -o jsonpath='{.data.password}' 2>/dev/null | base64 -d)
+              if [ -z "${ADMIN_PASS}" ]; then
+                echo "Admin secret not found, assuming AAP2 already torn down"
+                exit 0
+              fi
+
+              echo "Looking up user ${USERNAME}..."
+              USER_ID=$(curl -sk -u "admin:${ADMIN_PASS}" "${GATEWAY_HOST}/api/gateway/v1/users/?username=${USERNAME}" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d['results'][0]['id'] if d.get('results') else '')")
+              if [ -n "${USER_ID}" ]; then
+                curl -sk -o /dev/null -u "admin:${ADMIN_PASS}" -X DELETE "${GATEWAY_HOST}/api/gateway/v1/users/${USER_ID}/"
+                echo "Deleted user ${USERNAME}"
+              else
+                echo "User ${USERNAME} not found, already gone"
+              fi
+
+              echo "Looking up org ${ORG}..."
+              ORG_ID=$(curl -sk -u "admin:${ADMIN_PASS}" "${GATEWAY_HOST}/api/gateway/v1/organizations/?name=${ORG}" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d['results'][0]['id'] if d.get('results') else '')")
+              if [ -n "${ORG_ID}" ]; then
+                curl -sk -o /dev/null -u "admin:${ADMIN_PASS}" -X DELETE "${GATEWAY_HOST}/api/gateway/v1/organizations/${ORG_ID}/"
+                echo "Deleted org ${ORG}"
+              else
+                echo "Org ${ORG} not found, already gone"
+              fi

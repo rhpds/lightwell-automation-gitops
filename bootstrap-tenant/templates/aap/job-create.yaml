@@ -1,0 +1,79 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: create-aap-tenant
+  namespace: lightwell-tenant-{{ .Values.guid }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+    argocd.argoproj.io/hook: Sync
+    argocd.argoproj.io/hook-delete-policy: HookSucceeded
+spec:
+  backoffLimit: 10
+  template:
+    spec:
+      serviceAccountName: lightwell-tenant-jobs
+      restartPolicy: OnFailure
+      containers:
+        - name: create-aap-tenant
+          image: {{ .Values.jobAnsibleImage }}
+          command:
+            - /bin/bash
+            - -c
+            - |
+              set -e
+              AAP_NS="{{ .Values.aap.namespace }}"
+              ORG="{{ .Values.aap.org }}"
+              USERNAME="{{ .Values.username }}"
+              PASSWORD="{{ .Values.password }}"
+
+              echo "Discovering AAP Gateway route..."
+              GATEWAY_HOST=""
+              for i in $(seq 1 60); do
+                ROUTE_HOST=$(oc get route -n "${AAP_NS}" -l app.kubernetes.io/managed-by=aap-operator -o jsonpath='{.items[0].spec.host}' 2>/dev/null)
+                if [ -n "${ROUTE_HOST}" ]; then
+                  GATEWAY_HOST="https://${ROUTE_HOST}"
+                  break
+                fi
+                echo "Attempt $i/60 - waiting for route (10s)..."
+                sleep 10
+              done
+              if [ -z "${GATEWAY_HOST}" ]; then
+                echo "ERROR: Gateway route not found after 10 minutes"
+                exit 1
+              fi
+
+              ADMIN_PASS=$(oc get secret aap-admin-password -n "${AAP_NS}" -o jsonpath='{.data.password}' | base64 -d)
+
+              echo "Waiting for Controller API via gateway..."
+              for i in $(seq 1 60); do
+                STATUS=$(curl -sk -o /dev/null -w '%{http_code}' -u "admin:${ADMIN_PASS}" "${GATEWAY_HOST}/api/controller/v2/ping/" 2>/dev/null)
+                if [ "${STATUS}" = "200" ]; then
+                  break
+                fi
+                echo "Attempt $i/60 - API returned ${STATUS} (10s)..."
+                sleep 10
+              done
+              if [ "${STATUS}" != "200" ]; then
+                echo "ERROR: Controller API not ready after 10 minutes"
+                exit 1
+              fi
+
+              echo "Creating org ${ORG}..."
+              ORG_CODE=$(curl -sk -o /tmp/org.json -w '%{http_code}' \
+                -u "admin:${ADMIN_PASS}" -H "Content-Type: application/json" \
+                -X POST "${GATEWAY_HOST}/api/gateway/v1/organizations/" \
+                -d "{\"name\":\"${ORG}\"}")
+              if [ "${ORG_CODE}" != "201" ] && [ "${ORG_CODE}" != "400" ]; then
+                echo "ERROR: org create failed (HTTP ${ORG_CODE})"; cat /tmp/org.json; exit 1
+              fi
+
+              echo "Creating user ${USERNAME}..."
+              USER_CODE=$(curl -sk -o /tmp/user.json -w '%{http_code}' \
+                -u "admin:${ADMIN_PASS}" -H "Content-Type: application/json" \
+                -X POST "${GATEWAY_HOST}/api/gateway/v1/users/" \
+                -d "{\"username\":\"${USERNAME}\",\"password\":\"${PASSWORD}\",\"is_superuser\":false,\"force_basic_auth\":true}")
+              if [ "${USER_CODE}" != "201" ] && [ "${USER_CODE}" != "400" ]; then
+                echo "ERROR: user create failed (HTTP ${USER_CODE})"; cat /tmp/user.json; exit 1
+              fi
+
+              echo "AAP2 tenant provisioning complete (org HTTP ${ORG_CODE} / user HTTP ${USER_CODE})"
