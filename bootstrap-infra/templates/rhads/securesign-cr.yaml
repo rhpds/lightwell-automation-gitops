@@ -26,6 +26,15 @@ spec:
   tuf:
     externalAccess:
       enabled: true
+    # This chart does not deploy a TimestampAuthority (spec.tsa is unset), so the
+    # tsa.certchain.pem key the operator otherwise defaults in has no backing
+    # secret — Tuf sits Pending on `Secret "" not found` and never goes Ready.
+    # Explicitly list only the 3 keys that have real backing components so the
+    # operator's defaulting webhook doesn't re-add tsa.certchain.pem.
+    keys:
+      - name: rekor.pub
+      - name: ctfe.pub
+      - name: fulcio_v1.crt.pem
   trillian:
     database:
       create: true
