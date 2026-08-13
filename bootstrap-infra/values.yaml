@@ -24,6 +24,7 @@ tpa:
   uiClientId: trustify-ui
   storageSize: 20Gi
   dbStorageSize: 5Gi
+  postgresImage: docker.io/library/postgres:16-alpine
 
 artifactory:
   namespace: lightwell-artifactory

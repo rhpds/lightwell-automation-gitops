@@ -1,0 +1,83 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: tpa-postgresql
+  namespace: {{ .Values.tpa.namespace }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+spec:
+  storageClassName: {{ .Values.deployer.storageClass }}
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: {{ .Values.tpa.dbStorageSize }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: tpa-postgresql
+  namespace: {{ .Values.tpa.namespace }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+spec:
+  ports:
+    - port: 5432
+      targetPort: 5432
+  selector:
+    app: tpa-postgresql
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: tpa-postgresql
+  namespace: {{ .Values.tpa.namespace }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: tpa-postgresql
+  template:
+    metadata:
+      labels:
+        app: tpa-postgresql
+    spec:
+      containers:
+        - name: postgresql
+          image: {{ .Values.tpa.postgresImage }}
+          ports:
+            - containerPort: 5432
+          env:
+            - name: POSTGRES_USER
+              value: tpa
+            - name: POSTGRES_PASSWORD
+              value: {{ .Values.admin.password }}
+            - name: POSTGRES_DB
+              value: tpa
+            - name: PGDATA
+              value: /var/lib/postgresql/data/pgdata
+          resources:
+            requests:
+              cpu: 250m
+              memory: 256Mi
+            limits:
+              memory: 512Mi
+          volumeMounts:
+            - name: postgresql-data
+              mountPath: /var/lib/postgresql/data
+          readinessProbe:
+            exec:
+              command:
+                - pg_isready
+                - -U
+                - tpa
+            initialDelaySeconds: 5
+            periodSeconds: 10
+      volumes:
+        - name: postgresql-data
+          persistentVolumeClaim:
+            claimName: tpa-postgresql

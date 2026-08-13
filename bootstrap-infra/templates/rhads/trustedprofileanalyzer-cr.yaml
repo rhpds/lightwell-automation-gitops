@@ -1,4 +1,4 @@
-apiVersion: rhtpa.redhat.com/v1alpha1
+apiVersion: rhtpa.io/v1
 kind: TrustedProfileAnalyzer
 metadata:
   name: trustedprofileanalyzer-sample
@@ -7,19 +7,34 @@ metadata:
     argocd.argoproj.io/sync-wave: "2"
     argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
 spec:
-  hostname:
-    hostname: "trustify.{{ .Values.deployer.domain }}"
-  oidc:
-    enabled: true
-    externalServer: true
-    external:
-      serverUrl: "https://sso.{{ .Values.deployer.domain }}/realms/{{ .Values.tpa.keycloakRealm }}"
-      uiClientId: "{{ .Values.tpa.uiClientId }}"
+  partOf: trustify
+  replicas: 1
+  appDomain: "{{ .Values.deployer.domain }}"
+  tracing:
+    enabled: false
+  metrics:
+    enabled: false
   storage:
-    type: FILESYSTEM
-    filesystem:
-      pvcSize: "{{ .Values.tpa.storageSize }}"
-  db:
-    externalDatabase: false
-    embedded:
-      pvcSize: "{{ .Values.tpa.dbStorageSize }}"
+    type: filesystem
+    size: "{{ .Values.tpa.storageSize }}"
+  oidc:
+    issuerUrl: "https://sso.{{ .Values.deployer.domain }}/realms/{{ .Values.tpa.keycloakRealm }}"
+    clients:
+      frontend:
+        clientId: "{{ .Values.tpa.uiClientId }}"
+      walker:
+        clientId: walker
+        clientSecret: "{{ .Values.admin.password }}"
+  database:
+    host: tpa-postgresql.{{ .Values.tpa.namespace }}.svc.cluster.local
+    name: tpa
+    username: tpa
+    password: "{{ .Values.admin.password }}"
+    port: "5432"
+  modules:
+    createDatabase:
+      enabled: true
+    migrateDatabase:
+      enabled: true
+    createImporters:
+      enabled: false

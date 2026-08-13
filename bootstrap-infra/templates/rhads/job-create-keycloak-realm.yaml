@@ -74,3 +74,16 @@ spec:
                 cat /tmp/client_resp.json
                 exit 1
               fi
+
+              WALKER_SECRET="{{ .Values.admin.password }}"
+              WALKER_CODE=$(curl -sk -o /tmp/walker_resp.json -w '%{http_code}' \
+                -H "Authorization: Bearer ${TOKEN}" -H "Content-Type: application/json" \
+                -X POST "https://${KC_HOST}/admin/realms/${REALM}/clients" \
+                -d "{\"clientId\":\"walker\",\"publicClient\":false,\"secret\":\"${WALKER_SECRET}\",\"serviceAccountsEnabled\":true,\"standardFlowEnabled\":false}")
+              if [ "${WALKER_CODE}" = "201" ] || [ "${WALKER_CODE}" = "409" ]; then
+                echo "Client walker ready (HTTP ${WALKER_CODE})"
+              else
+                echo "ERROR: failed to create client walker (HTTP ${WALKER_CODE})"
+                cat /tmp/walker_resp.json
+                exit 1
+              fi
