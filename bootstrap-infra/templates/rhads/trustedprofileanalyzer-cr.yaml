@@ -31,6 +31,18 @@ spec:
     username: tpa
     password: "{{ .Values.admin.password }}"
     port: "5432"
+  createDatabase:
+    host: tpa-postgresql.{{ .Values.tpa.namespace }}.svc.cluster.local
+    name: tpa
+    username: tpa
+    password: "{{ .Values.admin.password }}"
+    port: "5432"
+  migrateDatabase:
+    host: tpa-postgresql.{{ .Values.tpa.namespace }}.svc.cluster.local
+    name: tpa
+    username: tpa
+    password: "{{ .Values.admin.password }}"
+    port: "5432"
   modules:
     createDatabase:
       enabled: true
