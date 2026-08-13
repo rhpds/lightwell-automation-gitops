@@ -9,7 +9,7 @@ metadata:
 spec:
   partOf: trustify
   replicas: 1
-  appDomain: "{{ .Values.deployer.domain }}"
+  appDomain: "-{{ .Values.tpa.namespace }}.{{ .Values.deployer.domain }}"
   tracing:
     enabled: false
   metrics:
